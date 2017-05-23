@@ -1,0 +1,7 @@
+{
+  "version": "{{.Version}}",
+  "title": "{{.Title}}",
+  "home_page_url": "{{.HomepageUrl}}",
+  "feed_url": "{{.FeedUrl}}",
+  "items": {{.Items}}
+}
