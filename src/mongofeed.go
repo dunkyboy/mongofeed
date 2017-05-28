@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 	html_template "html/template"
-	text_template"text/template"
+	text_template "text/template"
 	"fmt"
 )
 
@@ -42,7 +42,7 @@ func rssHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func getFeed(r *http.Request) (f *Feed, err error) {
+func getFeed(r *http.Request) (*Feed, error) {
 	return &Feed{
 		"https://jsonfeed.org/version/1",
 		"MongoFeed",
