@@ -8,23 +8,27 @@ import (
 	"gopkg.in/mgo.v2"
 	"flag"
 	"os"
+	"strings"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var mongoUrl string
 var mongo *mgo.Session
 
 func main() {
+	fmt.Println("Starting mongofeed...")
+
 	parseFlags()
 	connectMongo()
 
-	http.HandleFunc("/html", htmlHandler)
-	http.HandleFunc("/json", jsonHandler)
-	http.HandleFunc("/rss", rssHandler)
+	http.HandleFunc("/html/", htmlHandler)
+	http.HandleFunc("/json/", jsonHandler)
+	http.HandleFunc("/rss/", rssHandler)
 	http.ListenAndServe(":18080", nil)
 }
 
 func parseFlags() {
-	mongoUrl = *flag.String("m", nil, "Mongo connection string")
+	mongoUrl = *flag.String("m", "localhost:27017", "Mongo connection string")
 
 	flag.Parse()
 }
@@ -36,6 +40,7 @@ func connectMongo() {
 		fmt.Errorf("Error connecting to Mongo with connection string %s; exiting", mongoUrl)
 		os.Exit(1)
 	}
+	fmt.Println("Connected to Mongo at", mongoUrl)
 }
 
 type Feed struct {
@@ -43,7 +48,7 @@ type Feed struct {
 	Title string
 	HomepageUrl string
 	FeedUrl string
-	Items []string
+	Items string
 }
 
 func htmlHandler(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +57,17 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func jsonHandler(w http.ResponseWriter, r *http.Request) {
-	feed, err := getFeed(r)
+	fmt.Println("r.URL.Path", r.URL.Path)
+
+	path := strings.Split(r.URL.Path, "/")
+
+	// path = "/json/db/collection"
+	// path[0] = ""
+	// path[1] = "json"
+	db         := path[2]
+	collection := path[3]
+
+	feed, err := getFeed(r, db, collection)
 	if err != nil {
 		fmt.Errorf("Error retrieving JSON feed: %v", err)
 		return  // TODO
@@ -66,17 +81,38 @@ func rssHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func getFeed(r *http.Request) (*Feed, error) {
+func getFeed(r *http.Request, db string, collection string) (*Feed, error) {
 
-	r.
+	fmt.Printf("Fetching DB %v, collection %v\n", db, collection)
 
-	mongo.DB()
+	var result []bson.M
+	mongo.DB(db).C(collection).Find(bson.M{}).Sort("-$natural").Limit(1000).All(&result)
+
+	var items string
+	itemsBytes, err := bson.MarshalJSON(result)
+	if err != nil {
+		items = err.Error()
+	} else {
+		items = string(itemsBytes)
+	}
+
+	//items := make([]string, len(result))
+	//for i, doc := range result {
+	//	docStr, err := bson.MarshalJSON(doc)
+	//	if err != nil {
+	//		items[i] = err.Error()
+	//	} else {
+	//		items[i] = string(docStr[:])
+	//	}
+	//}
+
+	fmt.Println("items:", items)
 
 	return &Feed{
 		"https://jsonfeed.org/version/1",
-		"MongoFeed",
+		fmt.Sprintf("mongofeed - %s", mongoUrl),
 		r.Host,
 		r.Host + r.RequestURI,
-		make([]string, 0),
+		items,
 	}, nil
 }
